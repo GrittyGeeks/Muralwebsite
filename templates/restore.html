@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Restore Murals</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 text-gray-900">
+
+<header class="flex items-center justify-between p-4 bg-teal-600 text-white shadow-md">
+    <div class="flex items-center space-x-4">
+        <img src="{{ url_for('static', filename='images/kerala7.jpg') }}" alt="logo" class="h-10 rounded">
+        <h1 class="text-2xl font-bold">AEKA</h1>
+    </div>
+    <nav class="space-x-4 text-lg">
+        <a href="/" class="hover:underline">Home</a>
+        <a href="/restore" class="hover:underline">Restore Murals</a>
+    </nav>
+</header>
+
+<section class="container mx-auto py-16 px-8">
+    <div class="max-w-lg mx-auto p-10 border-4 border-dashed border-teal-700 bg-teal-100 rounded-xl text-center shadow-lg">
+        <p class="text-gray-700 mb-4 text-lg">Upload your mural image</p>
+        <input type="file" id="imageUpload" class="hidden" onchange="previewImage(event)">
+        <button class="bg-teal-600 text-white px-6 py-2 rounded hover:bg-teal-800" onclick="document.getElementById('imageUpload').click()">Upload Image</button>
+    </div>
+
+    <div id="preview" class="mt-6 text-center hidden">
+        <p class="text-lg font-semibold mb-4">Uploaded Image Preview:</p>
+        <img id="uploadedImage" class="max-w-md mx-auto mb-4 rounded-lg shadow-md" alt="Uploaded mural preview">
+
+        <div class="button-group mt-4 space-x-4">
+            <button class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-700" onclick="restoreImage('faded')">Restore Faded Image</button>
+            <button class="bg-green-500 text-white px-6 py-2 rounded hover:bg-green-700" onclick="restoreImage('cracked')">Restore Cracked Image</button>
+        </div>
+
+        <div id="restoredImages" class="mt-10 hidden">
+            <h3 class="text-lg font-semibold mb-4">Restored Image:</h3>
+            <div class="flex justify-center">
+                <div class="text-center">
+                    <img id="restoredImage" class="max-w-xs mx-auto mb-2 rounded shadow">
+                    <p id="methodCaption" class="font-semibold text-gray-700"></p>
+                    <a id="downloadBtn" href="#" download class="block mt-2 bg-teal-600 text-white px-4 py-2 rounded hover:bg-teal-800">Download Restored Image</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    function previewImage(event) {
+        let file = event.target.files[0];
+        if (!file) return;
+
+        let reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById("uploadedImage").src = e.target.result;
+            document.getElementById("preview").classList.remove("hidden");
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function restoreImage(type) {
+        const fileInput = document.getElementById("imageUpload");
+        if (!fileInput.files.length) {
+            alert("Please upload an image first.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("image", fileInput.files[0]);
+        formData.append("type", type);
+
+        try {
+            const response = await fetch("/restore", {
+                method: "POST",
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error("Error restoring image.");
+            }
+
+            const data = await response.json();
+
+            const restoredImagesDiv = document.getElementById("restoredImages");
+            restoredImagesDiv.classList.remove("hidden");
+
+            document.getElementById("restoredImage").src = data.restored_image;
+            document.getElementById("methodCaption").textContent = `Method: ${data.method_name}`;
+            document.getElementById("downloadBtn").href = data.restored_image;
+
+        } catch (error) {
+            console.error("Error:", error);
+            alert("Failed to restore image.");
+        }
+    }
+</script>
+
+</body>
+</html>

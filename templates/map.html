@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>
+            MURAL MAPS
+        </title>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" >
+        <title> AEKA </title>
+        <link rel="stylesheet" href="/static/map.css">
+        <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+        <style>
+          
+            .leaflet-popup-content {
+      font-size: 20px;       
+      font-weight: bold;     
+      text-align: center;    
+      padding: 15px;         
+    }
+        </style>
+    </head>
+    <body>
+        <header class="header">
+            <div class="logoContent">
+                <a href="#"><img src=" images\kerala7.jpg" alt="logo"></a>
+                <h1 class="logoName">AEKA</h1>
+            </div>
+
+           
+            <div class="icon">
+                    <i class="fas fa-home" onclick="window.location.href='index.html'"></i>
+            </div>
+        </header>
+        <section style="height: 100vh;
+        display: flex;
+        align-items: center;
+        background: url('https://raw.githubusercontent.com/Abitha-01/mural/main/images/mapcover%20(1).png') no-repeat center center;
+        background-size: cover;
+        background-position: center center;
+        background-attachment: fixed;">
+            <div style="width: 50%;
+            float: left;
+            text-align: center;
+            padding: 4rem;">
+            <h2 style="font-size: 7rem;
+            font-weight: bolder;
+            margin-bottom: 2rem;
+            line-height: 7rem;
+            color: var(--black);
+            text-shadow: var(--box-shadow);"> KERALA MURAL DESTINATIONS </h2>
+            
+            </div>
+            <div class="swipe-up-container">
+                <div class="swipe-up-text">Swipe Up</div>
+        </section>
+        <section style="background: url('https://raw.githubusercontent.com/Abitha-01/mural/main/images/plainbg.png') no-repeat center center;">
+      <div id="map" style=" height: 100vh; 
+      width: 100%; "></div>
+      </section>
+            <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" ></script>
+        
+        <script src="/static/map.js"></script>
+    </body>
+
+</html>
