@@ -6,18 +6,15 @@ from werkzeug.utils import secure_filename
 import tensorflow as tf
 from tensorflow.keras.preprocessing import image as keras_image
 from tensorflow.keras.applications.vgg16 import VGG16, preprocess_input
-import gdown
-import time  # For retry logic
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 
-# Configuration - MODIFY THESE AS NEEDED
+# Configuration
 UPLOAD_FOLDER = "static/uploads"
 RESTORE_FOLDER = "static/restored"
 MODEL_DIR = "model"
 MODEL_FILENAME = "transfer_learning_vgg16_mural_model.h5"
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILENAME)
-DRIVE_FILE_ID = "1nPZhOFQ7g0ANVJP-c4rWvB8HC1m3CtiG"  # Replace with your actual file ID
 
 # Ensure directories exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -25,34 +22,11 @@ os.makedirs(RESTORE_FOLDER, exist_ok=True)
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 # =============================================
-# IMPROVED MODEL LOADING WITH ERROR HANDLING
+# MODEL LOADING
 # =============================================
 
-def download_model_with_retry():
-    """Download model with retry logic and proper error handling"""
-    max_retries = 3
-    for attempt in range(max_retries):
-        try:
-            print(f"Attempt {attempt + 1} to download model...")
-            url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}"
-            gdown.download(url, MODEL_PATH, quiet=False)
-            if os.path.exists(MODEL_PATH):
-                print("Model downloaded successfully!")
-                return True
-        except Exception as e:
-            print(f"Attempt {attempt + 1} failed: {str(e)}")
-            if attempt < max_retries - 1:
-                time.sleep(5 * (attempt + 1))  # Wait longer between retries
-    return False
-
 def load_or_build_model():
-    """Load model or build architecture with proper error recovery"""
-    # Try to download if file doesn't exist
-    if not os.path.exists(MODEL_PATH):
-        if not download_model_with_retry():
-            print("Failed to download model from Google Drive")
-    
-    # Try to load complete model
+    """Load model or build architecture"""
     if os.path.exists(MODEL_PATH):
         try:
             model = tf.keras.models.load_model(MODEL_PATH)
@@ -60,9 +34,8 @@ def load_or_build_model():
             return model
         except Exception as e:
             print(f"Couldn't load full model: {str(e)}")
-            os.remove(MODEL_PATH)  # Remove corrupted file
     
-    # Fallback: Build architecture and load weights
+    # Fallback: Build architecture and try loading weights
     print("Building model architecture to match weights")
     try:
         base_model = VGG16(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
@@ -72,13 +45,13 @@ def load_or_build_model():
         x = tf.keras.layers.Dropout(0.5)(x)
         x = tf.keras.layers.Dense(1, activation='sigmoid')(x)
         model = tf.keras.models.Model(inputs=base_model.input, outputs=x)
-        
+
         if os.path.exists(MODEL_PATH):
             model.load_weights(MODEL_PATH)
             print("Weights loaded successfully")
         else:
-            print("No weights file available - using untrained model")
-        
+            print("No weights file found at MODEL_PATH")
+
         return model
     except Exception as e:
         print(f"Critical error building model: {str(e)}")
@@ -88,7 +61,7 @@ def load_or_build_model():
 model = load_or_build_model()
 
 # =============================================
-# ROUTES (KEEP YOUR EXISTING ROUTES)
+# ROUTES
 # =============================================
 
 @app.route('/')
