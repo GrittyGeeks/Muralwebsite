@@ -1,8 +1,8 @@
 Flask==3.0.0
 gunicorn==21.2.0
-numpy==2.0.0  # Updated for Python 3.11
-Pillow==10.1.0  # Updated version
-tensorflow-cpu==2.15.0
-opencv-python-headless==4.8.1.78  # Compatible with Python 3.11
+numpy==1.26.4  # TensorFlow 2.19 works best with NumPy 1.23.5-1.26.x
+Pillow==10.1.0
+tensorflow-cpu==2.19.0  # or tensorflow==2.19.0 for GPU support
+opencv-python-headless==4.8.1.78
 gdown==4.7.1
 python-dotenv==1.0.0
