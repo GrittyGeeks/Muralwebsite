@@ -6,43 +6,91 @@ from werkzeug.utils import secure_filename
 import tensorflow as tf
 from tensorflow.keras.preprocessing import image as keras_image
 from tensorflow.keras.applications.vgg16 import VGG16, preprocess_input
-import gdown  # NEW IMPORT
+import gdown
+import time  # For retry logic
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 
-# Configure upload folders
+# Configuration - MODIFY THESE AS NEEDED
 UPLOAD_FOLDER = "static/uploads"
 RESTORE_FOLDER = "static/restored"
+MODEL_DIR = "model"
+MODEL_FILENAME = "transfer_learning_vgg16_mural_model.h5"
+MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILENAME)
+DRIVE_FILE_ID = "1nPZhOFQ7g0ANVJP-c4rWvB8HC1m3CtiG"  # Replace with your actual file ID
+
+# Ensure directories exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESTORE_FOLDER, exist_ok=True)
+os.makedirs(MODEL_DIR, exist_ok=True)
 
-# Download model from Google Drive if not exists
-MODEL_PATH = "model/transfer_learning_vgg16_mural_model.h5"
-DRIVE_FILE_ID = "1nPZhOFQ7g0ANVJP-c4rWvB8HC1m3CtiG" 
-os.makedirs("model", exist_ok=True)
+# =============================================
+# IMPROVED MODEL LOADING WITH ERROR HANDLING
+# =============================================
 
-if not os.path.exists(MODEL_PATH):
-    print("Downloading model from Google Drive...")
-    url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}"
-    gdown.download(url, MODEL_PATH, quiet=False)
+def download_model_with_retry():
+    """Download model with retry logic and proper error handling"""
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            print(f"Attempt {attempt + 1} to download model...")
+            url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}"
+            gdown.download(url, MODEL_PATH, quiet=False)
+            if os.path.exists(MODEL_PATH):
+                print("Model downloaded successfully!")
+                return True
+        except Exception as e:
+            print(f"Attempt {attempt + 1} failed: {str(e)}")
+            if attempt < max_retries - 1:
+                time.sleep(5 * (attempt + 1))  # Wait longer between retries
+    return False
 
-# Model loading with proper architecture
-try:
-    # Attempt to load the complete model first
-    model = tf.keras.models.load_model(MODEL_PATH)
-    print("Model loaded successfully with architecture and weights")
-except:
+def load_or_build_model():
+    """Load model or build architecture with proper error recovery"""
+    # Try to download if file doesn't exist
+    if not os.path.exists(MODEL_PATH):
+        if not download_model_with_retry():
+            print("Failed to download model from Google Drive")
+    
+    # Try to load complete model
+    if os.path.exists(MODEL_PATH):
+        try:
+            model = tf.keras.models.load_model(MODEL_PATH)
+            print("Model loaded successfully with full architecture")
+            return model
+        except Exception as e:
+            print(f"Couldn't load full model: {str(e)}")
+            os.remove(MODEL_PATH)  # Remove corrupted file
+    
+    # Fallback: Build architecture and load weights
     print("Building model architecture to match weights")
-    base_model = VGG16(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
-    x = base_model.output
-    x = tf.keras.layers.GlobalAveragePooling2D()(x)
-    x = tf.keras.layers.Dense(128, activation='relu')(x)  # Must match your saved weights
-    x = tf.keras.layers.Dropout(0.5)(x)
-    x = tf.keras.layers.Dense(1, activation='sigmoid')(x)
-    model = tf.keras.models.Model(inputs=base_model.input, outputs=x)
-    model.load_weights(MODEL_PATH)
+    try:
+        base_model = VGG16(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+        x = base_model.output
+        x = tf.keras.layers.GlobalAveragePooling2D()(x)
+        x = tf.keras.layers.Dense(128, activation='relu')(x)
+        x = tf.keras.layers.Dropout(0.5)(x)
+        x = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+        model = tf.keras.models.Model(inputs=base_model.input, outputs=x)
+        
+        if os.path.exists(MODEL_PATH):
+            model.load_weights(MODEL_PATH)
+            print("Weights loaded successfully")
+        else:
+            print("No weights file available - using untrained model")
+        
+        return model
+    except Exception as e:
+        print(f"Critical error building model: {str(e)}")
+        raise RuntimeError("Could not initialize model") from e
 
-# Routes
+# Initialize model when app starts
+model = load_or_build_model()
+
+# =============================================
+# ROUTES (KEEP YOUR EXISTING ROUTES)
+# =============================================
+
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -51,7 +99,6 @@ def home():
 def map():
     return render_template('map.html')
 
-# Add this new route before the existing ones
 @app.route('/classify', methods=['GET', 'POST'])
 def classify():
     if request.method == 'GET':
@@ -69,7 +116,6 @@ def classify():
         img_path = os.path.join(UPLOAD_FOLDER, filename)
         file.save(img_path)
         
-        # Classify only
         is_faded = classify_image(img_path)
         classification = "Faded" if is_faded else "Cracked"
         
@@ -80,7 +126,6 @@ def classify():
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 
 @app.route('/app', methods=['GET', 'POST'])
 def restore():
@@ -99,12 +144,10 @@ def restore():
         img_path = os.path.join(UPLOAD_FOLDER, filename)
         file.save(img_path)
         
-        # Classify and restore
         img_class = classify_image(img_path)
         restored_img = clahe_restore(img_path) if img_class else inpaint_restore(img_path)
         method = "CLAHE" if img_class else "Navier Stokes"
         
-        # Save result
         restored_filename = f"restored_{filename}"
         restored_path = os.path.join(RESTORE_FOLDER, restored_filename)
         cv2.imwrite(restored_path, restored_img)
@@ -117,7 +160,10 @@ def restore():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# Image processing functions
+# =============================================
+# IMAGE PROCESSING FUNCTIONS
+# =============================================
+
 def classify_image(img_path):
     img = keras_image.load_img(img_path, target_size=(224, 224))
     img_array = keras_image.img_to_array(img)
