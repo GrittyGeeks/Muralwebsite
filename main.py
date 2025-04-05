@@ -10,14 +10,25 @@ from tensorflow.keras.applications.vgg16 import VGG16, preprocess_input
 app = Flask(__name__, static_folder='static', template_folder='templates')
 
 # Configuration
-UPLOAD_FOLDER = "static/uploads"
-RESTORE_FOLDER = "static/restored"
+UPLOAD_FOLDER = "/tmp/uploads"
+RESTORE_FOLDER = "/tmp/restored"
 MODEL_PATH = "transfer_learning_vgg16_mural_model.h5"
 
 
 # Ensure directories exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESTORE_FOLDER, exist_ok=True)
+
+
+from flask import send_from_directory
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
+@app.route('/restored/<filename>')
+def restored_file(filename):
+    return send_from_directory(RESTORE_FOLDER, filename)
 
 
 # =============================================
