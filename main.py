@@ -12,9 +12,8 @@ app = Flask(__name__, static_folder='static', template_folder='templates')
 # Configuration
 UPLOAD_FOLDER = "static/uploads"
 RESTORE_FOLDER = "static/restored"
-MODEL_DIR = "model"
-MODEL_FILENAME = "transfer_learning_vgg16_mural_model.h5"
-MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILENAME)
+MODEL_PATH = "transfer_learning_vgg16_mural_model.h5"
+
 
 # Ensure directories exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
