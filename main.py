@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 import tensorflow as tf
 from tensorflow.keras.preprocessing import image as keras_image
 from tensorflow.keras.applications.vgg16 import VGG16, preprocess_input
+import gdown  # NEW IMPORT
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 
@@ -15,10 +16,20 @@ RESTORE_FOLDER = "static/restored"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESTORE_FOLDER, exist_ok=True)
 
+# Download model from Google Drive if not exists
+MODEL_PATH = "model/transfer_learning_vgg16_mural_model.h5"
+DRIVE_FILE_ID = "1nPZhOFQ7g0ANVJP-c4rWvB8HC1m3CtiG" 
+os.makedirs("model", exist_ok=True)
+
+if not os.path.exists(MODEL_PATH):
+    print("Downloading model from Google Drive...")
+    url = f"https://drive.google.com/uc?id={DRIVE_FILE_ID}"
+    gdown.download(url, MODEL_PATH, quiet=False)
+
 # Model loading with proper architecture
 try:
     # Attempt to load the complete model first
-    model = tf.keras.models.load_model('transfer_learning_vgg16_mural_model.h5')
+    model = tf.keras.models.load_model(MODEL_PATH)
     print("Model loaded successfully with architecture and weights")
 except:
     print("Building model architecture to match weights")
@@ -29,7 +40,7 @@ except:
     x = tf.keras.layers.Dropout(0.5)(x)
     x = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     model = tf.keras.models.Model(inputs=base_model.input, outputs=x)
-    model.load_weights('transfer_learning_vgg16_mural_model.h5')
+    model.load_weights(MODEL_PATH)
 
 # Routes
 @app.route('/')
