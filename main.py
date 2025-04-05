@@ -18,7 +18,7 @@ MODEL_PATH = "transfer_learning_vgg16_mural_model.h5"
 # Ensure directories exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(RESTORE_FOLDER, exist_ok=True)
-os.makedirs(MODEL_DIR, exist_ok=True)
+
 
 # =============================================
 # MODEL LOADING
