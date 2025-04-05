@@ -1,6 +1,8 @@
-Flask
-tensorflow
-numpy
-Pillow
-gunicorn
-gdown
+Flask==3.0.0
+gunicorn==21.2.0
+numpy==1.24.0
+Pillow==10.0.0
+tensorflow-cpu==2.15.0  # Lighter CPU-only version
+opencv-python-headless==4.8.0  # No GUI dependencies
+gdown==4.7.1  # For downloading files (e.g., models)
+python-dotenv==1.0.0  # For environment variables
