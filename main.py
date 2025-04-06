@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, jsonify
+from flask import Flask, request, render_template, jsonify, url_for
 import os
 import cv2
 import numpy as np
@@ -76,151 +76,145 @@ def upload_to_supabase(file, folder, filename):
         print(f"Upload error: {traceback.format_exc()}")
         raise
 
-def validate_image(file_path):
-    """Verify image can be processed"""
+@app.route('/')
+def home():
+    return render_template('index.html')
+
+@app.route('/map')
+def map_page():  # Renamed to avoid conflict with Python's map function
+    return render_template('map.html')
+
+@app.route('/classify', methods=['GET', 'POST'])
+def classify():
+    if request.method == 'GET':
+        return render_template('classify.html')
+    
+    if 'image' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+    
+    file = request.files['image']
+    if file.filename == '' or not allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file'}), 400
+    
     try:
-        img = Image.open(file_path)
-        img.verify()
-        img.close()
-        return True
+        filename = secure_filename(file.filename)
+        temp_path = os.path.join("/tmp", filename)
+        file.save(temp_path)
+        
+        # Verify image
+        try:
+            img = Image.open(temp_path)
+            img.verify()
+            img.close()
+        except Exception as e:
+            return jsonify({'error': f'Invalid image: {str(e)}'}), 400
+        
+        # Classify
+        is_faded = classify_image(temp_path)
+        classification = "Faded" if is_faded else "Cracked"
+        
+        # Upload
+        file.seek(0)
+        image_url = upload_to_supabase(file, "uploads", filename)
+        
+        return jsonify({
+            'status': 'success',
+            'classification': classification,
+            'image_url': image_url
+        })
     except Exception as e:
-        print(f"Invalid image: {str(e)}")
-        return False
+        print(f"Error in classify: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+@app.route('/restore', methods=['GET', 'POST'])
+def restore():
+    if request.method == 'GET':
+        return render_template('restore.html')  # Changed from app.html to restore.html
+    
+    if 'image' not in request.files:
+        return jsonify({'error': 'No file uploaded'}), 400
+    
+    file = request.files['image']
+    if file.filename == '' or not allowed_file(file.filename):
+        return jsonify({'error': 'Invalid file'}), 400
+    
+    try:
+        filename = secure_filename(file.filename)
+        temp_path = os.path.join("/tmp", filename)
+        file.save(temp_path)
+        
+        # Verify image
+        try:
+            img = Image.open(temp_path)
+            img.verify()
+            img.close()
+        except Exception as e:
+            return jsonify({'error': f'Invalid image: {str(e)}'}), 400
+        
+        # Process
+        is_faded = classify_image(temp_path)
+        restored_img = clahe_restore(temp_path) if is_faded else inpaint_restore(temp_path)
+        method = "CLAHE" if is_faded else "Inpainting"
+        
+        # Save and upload
+        _, buffer = cv2.imencode('.jpg', restored_img)
+        restored_bytes = io.BytesIO(buffer).getvalue()
+        restored_url = upload_to_supabase(restored_bytes, "restored", f"restored_{filename}")
+        
+        return jsonify({
+            'status': 'success',
+            'restored_image': restored_url,
+            'method': method
+        })
+    except Exception as e:
+        print(f"Error in restore: {traceback.format_exc()}")
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
 
 def classify_image(img_path):
-    """Enhanced image classification with validation"""
+    """Image classification with error handling"""
     try:
-        if not os.path.exists(img_path):
-            raise FileNotFoundError(f"Image not found at {img_path}")
-        
-        print(f"Classifying image: {img_path}")
         img = keras_image.load_img(img_path, target_size=(224, 224))
         img_array = keras_image.img_to_array(img)
         img_array = np.expand_dims(img_array, axis=0)
         img_array = preprocess_input(img_array)
-        
-        prediction = model.predict(img_array)[0][0]
-        print(f"Raw prediction value: {prediction}")
-        return prediction > 0.5
+        return model.predict(img_array)[0][0] > 0.5
     except Exception as e:
         print(f"Classification error: {traceback.format_exc()}")
         raise
 
 def clahe_restore(img_path):
-    """Enhanced CLAHE restoration"""
+    """CLAHE restoration with error handling"""
     try:
         img = cv2.imread(img_path)
         if img is None:
-            raise ValueError("CV2 failed to read image")
-        
+            raise ValueError("Failed to read image")
         lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
         l, a, b = cv2.split(lab)
         clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
         l = clahe.apply(l)
         return cv2.cvtColor(cv2.merge((l, a, b)), cv2.COLOR_LAB2BGR)
     except Exception as e:
-        print(f"CLAHE restoration failed: {traceback.format_exc()}")
+        print(f"CLAHE error: {traceback.format_exc()}")
         raise
 
 def inpaint_restore(img_path):
-    """Enhanced inpainting"""
+    """Inpainting restoration with error handling"""
     try:
         img = cv2.imread(img_path)
         if img is None:
-            raise ValueError("CV2 failed to read image")
-        
+            raise ValueError("Failed to read image")
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         _, mask = cv2.threshold(gray, 50, 255, cv2.THRESH_BINARY_INV)
         return cv2.inpaint(img, mask, 3, cv2.INPAINT_NS)
     except Exception as e:
-        print(f"Inpainting failed: {traceback.format_exc()}")
+        print(f"Inpainting error: {traceback.format_exc()}")
         raise
-
-@app.route('/classify', methods=['POST'])
-def classify_endpoint():
-    try:
-        if 'image' not in request.files:
-            return jsonify({'error': 'No file uploaded'}), 400
-        
-        file = request.files['image']
-        if file.filename == '' or not allowed_file(file.filename):
-            return jsonify({'error': 'Invalid file'}), 400
-        
-        filename = secure_filename(file.filename)
-        temp_path = os.path.join("/tmp", filename)
-        
-        try:
-            file.save(temp_path)
-            if not validate_image(temp_path):
-                return jsonify({'error': 'Invalid image file'}), 400
-            
-            is_faded = classify_image(temp_path)
-            classification = "Faded" if is_faded else "Cracked"
-            
-            file.seek(0)
-            image_url = upload_to_supabase(file, "uploads", filename)
-            
-            return jsonify({
-                'status': 'success',
-                'classification': classification,
-                'image_url': image_url
-            })
-        finally:
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-                
-    except Exception as e:
-        print(f"Endpoint error: {traceback.format_exc()}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/restore', methods=['POST'])
-def restore_endpoint():
-    try:
-        if 'image' not in request.files:
-            return jsonify({'error': 'No file uploaded'}), 400
-        
-        file = request.files['image']
-        if file.filename == '' or not allowed_file(file.filename):
-            return jsonify({'error': 'Invalid file'}), 400
-        
-        filename = secure_filename(file.filename)
-        temp_path = os.path.join("/tmp", filename)
-        
-        try:
-            file.save(temp_path)
-            if not validate_image(temp_path):
-                return jsonify({'error': 'Invalid image file'}), 400
-            
-            is_faded = classify_image(temp_path)
-            restored_img = clahe_restore(temp_path) if is_faded else inpaint_restore(temp_path)
-            method = "CLAHE" if is_faded else "Inpainting"
-            
-            _, buffer = cv2.imencode('.jpg', restored_img)
-            restored_bytes = io.BytesIO(buffer).getvalue()
-            
-            restored_filename = f"restored_{filename}"
-            restored_url = upload_to_supabase(restored_bytes, "restored", restored_filename)
-            
-            return jsonify({
-                'status': 'success',
-                'restored_image': restored_url,
-                'method': method
-            })
-        finally:
-            if os.path.exists(temp_path):
-                os.remove(temp_path)
-                
-    except Exception as e:
-        print(f"Restoration error: {traceback.format_exc()}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/')
-def home():
-    return render_template('index.html')
-
-@app.route('/map')
-def map():
-    return render_template('map.html')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
