@@ -13,8 +13,8 @@ from PIL import Image
 app = Flask(__name__, template_folder='templates')
 
 # Supabase Configuration
-SUPABASE_URL = "https://your-project-id.supabase.co"
-SUPABASE_KEY = "your-anon-key"
+SUPABASE_URL = "https://dnlzklnwenoraeldzrli.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRubHprbG53ZW5vcmFlbGR6cmxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5MTczMjAsImV4cCI6MjA1OTQ5MzMyMH0.ElBQld5a6J-2fjJ5RjTJtCZgDi48MunO1GoEKz_n-eU"
 BUCKET_NAME = "mural-restoration"
 
 # Initialize Supabase client
@@ -23,9 +23,6 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 # Model Configuration
 MODEL_PATH = "transfer_learning_vgg16_mural_model.h5"
 
-# =============================================
-# MODEL LOADING (Same as original)
-# =============================================
 
 def load_or_build_model():
     """Load model or build architecture"""
