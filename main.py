@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, jsonify, send_from_directory, url_for
+from flask import Flask, request, render_template, jsonify, url_for
 import os
 import cv2
 import numpy as np
@@ -6,29 +6,25 @@ from werkzeug.utils import secure_filename
 import tensorflow as tf
 from tensorflow.keras.preprocessing import image as keras_image
 from tensorflow.keras.applications.vgg16 import VGG16, preprocess_input
+from supabase import create_client, Client
+import io
+from PIL import Image
 
-app = Flask(__name__, static_folder='static', template_folder='templates')
+app = Flask(__name__, template_folder='templates')
 
-# Configuration (for Render)
-UPLOAD_FOLDER = "/tmp/uploads"
-RESTORE_FOLDER = "/tmp/restored"
+# Supabase Configuration
+SUPABASE_URL = "https://your-project-id.supabase.co"
+SUPABASE_KEY = "your-anon-key"
+BUCKET_NAME = "mural-restoration"
+
+# Initialize Supabase client
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# Model Configuration
 MODEL_PATH = "transfer_learning_vgg16_mural_model.h5"
 
-# Ensure directories exist
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(RESTORE_FOLDER, exist_ok=True)
-
-# Serve uploaded and restored images
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
-
-@app.route('/restored/<filename>')
-def restored_file(filename):
-    return send_from_directory(RESTORE_FOLDER, filename)
-
 # =============================================
-# MODEL LOADING
+# MODEL LOADING (Same as original)
 # =============================================
 
 def load_or_build_model():
@@ -66,7 +62,36 @@ def load_or_build_model():
 model = load_or_build_model()
 
 # =============================================
-# ROUTES
+# SUPABASE STORAGE HELPER FUNCTIONS
+# =============================================
+
+def upload_to_supabase(file, folder, filename):
+    """Upload file to Supabase Storage"""
+    file_path = f"{folder}/{filename}"
+    
+    # For Flask file objects
+    if hasattr(file, 'read'):
+        file_bytes = file.read()
+    else:
+        file_bytes = file
+    
+    res = supabase.storage.from_(BUCKET_NAME).upload(file_path, file_bytes)
+    if res.status_code != 200:
+        raise Exception(f"Supabase upload failed: {res.error}")
+    
+    # Get public URL
+    url_res = supabase.storage.from_(BUCKET_NAME).get_public_url(file_path)
+    return url_res
+
+def download_from_supabase(file_path):
+    """Download file from Supabase Storage"""
+    res = supabase.storage.from_(BUCKET_NAME).download(file_path)
+    if isinstance(res, bytes):
+        return res
+    raise Exception(f"Supabase download failed: {res.error}")
+
+# =============================================
+# ROUTES (Modified for Supabase)
 # =============================================
 
 @app.route('/')
@@ -91,16 +116,25 @@ def classify():
     
     try:
         filename = secure_filename(file.filename)
-        img_path = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(img_path)
-
-        is_faded = classify_image(img_path)
+        
+        # Temporarily save file for classification (could be optimized)
+        temp_path = f"/tmp/{filename}"
+        file.save(temp_path)
+        
+        is_faded = classify_image(temp_path)
         classification = "Faded" if is_faded else "Cracked"
+        
+        # Upload original image to Supabase
+        file.seek(0)  # Reset file pointer
+        image_url = upload_to_supabase(file, "uploads", filename)
+        
+        # Clean up temp file
+        os.remove(temp_path)
         
         return jsonify({
             'status': 'success',
             'classification': classification,
-            'image_url': url_for('uploaded_file', filename=filename)
+            'image_url': image_url
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -119,27 +153,41 @@ def restore():
     
     try:
         filename = secure_filename(file.filename)
-        img_path = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(img_path)
-
-        img_class = classify_image(img_path)
-        restored_img = clahe_restore(img_path) if img_class else inpaint_restore(img_path)
+        
+        # Temporarily save file for processing
+        temp_path = f"/tmp/{filename}"
+        file.save(temp_path)
+        
+        # Classify and restore
+        img_class = classify_image(temp_path)
+        restored_img = clahe_restore(temp_path) if img_class else inpaint_restore(temp_path)
         method = "CLAHE" if img_class else "Navier Stokes"
         
+        # Save restored image to bytes
+        _, buffer = cv2.imencode('.jpg', restored_img)
+        restored_bytes = io.BytesIO(buffer).getvalue()
+        
+        # Upload restored image to Supabase
         restored_filename = f"restored_{filename}"
-        restored_path = os.path.join(RESTORE_FOLDER, restored_filename)
-        cv2.imwrite(restored_path, restored_img)
-
+        restored_url = upload_to_supabase(
+            restored_bytes, 
+            "restored", 
+            restored_filename
+        )
+        
+        # Clean up temp file
+        os.remove(temp_path)
+        
         return jsonify({
             'status': 'success',
-            'restored_image': url_for('restored_file', filename=restored_filename),
+            'restored_image': restored_url,
             'method': method
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 # =============================================
-# IMAGE PROCESSING FUNCTIONS
+# IMAGE PROCESSING FUNCTIONS (Same as original)
 # =============================================
 
 def classify_image(img_path):
