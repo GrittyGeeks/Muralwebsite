@@ -1,7 +1,7 @@
 Flask==3.0.0
 gunicorn==21.2.0
-supabase==2.10.0
-gotrue==2.11.4
+supabase==2.9.1
+gotrue==2.10.0
 httpx==0.25.2
 postgrest-py==0.10.6
 numpy==1.26.4  # TensorFlow 2.19 works best with NumPy 1.23.5-1.26.x
