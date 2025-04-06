@@ -4,7 +4,6 @@ supabase==2.10.0
 gotrue==2.11.4
 httpx==0.25.2
 postgrest-py==0.10.6
-realtime-py==0.2.0
 numpy==1.26.4  # TensorFlow 2.19 works best with NumPy 1.23.5-1.26.x
 Pillow==10.1.0
 tensorflow-cpu==2.19.0  # or tensorflow==2.19.0 for GPU support
