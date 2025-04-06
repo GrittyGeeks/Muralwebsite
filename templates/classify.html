@@ -53,6 +53,11 @@
                     <div class="p-6 bg-gray-50 rounded-lg">
                         <p class="text-lg">This mural is:</p>
                         <p id="classificationResult" class="text-2xl font-bold mt-2"></p>
+                        <!-- Added this div to show the uploaded image from Supabase -->
+                        <div id="uploadedImageContainer" class="mt-4 hidden">
+                            <p class="text-sm text-gray-500 mb-2">Uploaded Image:</p>
+                            <img id="uploadedImage" class="max-w-full h-auto rounded-lg shadow-md mx-auto">
+                        </div>
                     </div>
                 </div>
                 
@@ -72,6 +77,8 @@
             const resultsSection = document.getElementById('resultsSection');
             const classificationResult = document.getElementById('classificationResult');
             const statusMessage = document.getElementById('statusMessage');
+            const uploadedImageContainer = document.getElementById('uploadedImageContainer');
+            const uploadedImage = document.getElementById('uploadedImage');
             
             // Handle file selection
             uploadBtn.addEventListener('click', () => imageInput.click());
@@ -86,6 +93,7 @@
                     imagePreview.src = event.target.result;
                     previewSection.classList.remove('hidden');
                     resultsSection.classList.add('hidden');
+                    uploadedImageContainer.classList.add('hidden');
                     clearStatus();
                 };
                 
@@ -134,6 +142,13 @@
                     } else {
                         classificationResult.className = "text-2xl font-bold mt-2 text-red-600";
                     }
+                    
+                    // Show the uploaded image from Supabase
+                    if (data.image_url) {
+                        uploadedImage.src = data.image_url;
+                        uploadedImageContainer.classList.remove('hidden');
+                    }
+                    
                     resultsSection.classList.remove('hidden');
                     showStatus('Classification complete!', 'success');
                 } catch (error) {
