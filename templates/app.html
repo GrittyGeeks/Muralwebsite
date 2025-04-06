@@ -57,9 +57,14 @@
                     <div>
                         <h3 class="font-medium mb-2">Restored (<span id="methodName"></span>)</h3>
                         <img id="restoredImage" class="w-full rounded shadow">
-                        <a id="downloadBtn" href="#" download class="mt-4 inline-block bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
-                            Download Restored Image
-                        </a>
+                        <div class="mt-4 space-x-2">
+                            <a id="downloadBtn" href="#" download class="inline-block bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+                                Download Restored Image
+                            </a>
+                            <a id="viewOriginalBtn" href="#" target="_blank" class="inline-block bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
+                                View Original
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -81,7 +86,11 @@
             const restoredImage = document.getElementById('restoredImage');
             const methodName = document.getElementById('methodName');
             const downloadBtn = document.getElementById('downloadBtn');
+            const viewOriginalBtn = document.getElementById('viewOriginalBtn');
             const statusMessage = document.getElementById('statusMessage');
+            
+            // Store the original Supabase URL for later use
+            let originalImageUrl = '';
             
             // Handle file selection
             uploadBtn.addEventListener('click', () => imageUpload.click());
@@ -132,10 +141,22 @@
                         throw new Error(data.error);
                     }
                     
+                    // Store the original image URL from Supabase
+                    originalImageUrl = data.image_url || '';
+                    
                     // Show results
                     restoredImage.src = data.restored_image;
                     methodName.textContent = data.method;
+                    
+                    // Set download/view links
                     downloadBtn.href = data.restored_image;
+                    if (originalImageUrl) {
+                        viewOriginalBtn.href = originalImageUrl;
+                        viewOriginalBtn.classList.remove('hidden');
+                    } else {
+                        viewOriginalBtn.classList.add('hidden');
+                    }
+                    
                     resultsSection.classList.remove('hidden');
                     showStatus('Restoration complete!', 'success');
                 } catch (error) {
@@ -147,6 +168,11 @@
                     restoreBtn.textContent = 'Restore Image';
                 }
             });
+            
+            // Error handling for image loading
+            restoredImage.onerror = function() {
+                showStatus('Failed to load restored image from Supabase', 'error');
+            };
             
             function showStatus(message, type) {
                 statusMessage.textContent = message;
