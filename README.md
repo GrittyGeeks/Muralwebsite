@@ -1,7 +1,9 @@
 🖼️ **Kerala Mural Restoration & Classification Web App**
+
 This project is a web-based application designed to assist in the restoration and classification of Kerala mural paintings using deep learning techniques. By leveraging the VGG-16 convolutional neural network, the application aims to identify and categorize degraded murals, facilitating preservation efforts for this traditional art form.
 
 🔍 **Features**
+
 *Image Classification*: Utilizes a pre-trained VGG-16 model to classify images of Kerala murals, distinguishing between various styles and degradation levels.
 
 *Restoration Assistance*: Provides insights into the condition of murals, aiding in restoration planning.
@@ -9,6 +11,7 @@ This project is a web-based application designed to assist in the restoration an
 *User-Friendly Interface*: Built with Flask, offering an intuitive platform for users to upload and analyze mural images.
 
 🛠️ **Technologies Used**
+
 *Frontend*: HTML, CSS, JavaScript
 
 *Backend*: Python, Flask
